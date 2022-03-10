@@ -50,8 +50,7 @@ class DbCon:
         and value.
         
         ["one", {"type": cx_Oracle.STRING}, {"type": cx_Oracle.STRING, "value": "an IN OUT params"}]
-        
-        
+              
         Parameters:
             procedure_name (str): name of procedure to call
             param_details (list/tuple): optional parameters to pass to the
@@ -61,29 +60,36 @@ class DbCon:
             List containing the parameters supplied to the procedure. This
             includes any OUT values updated by the call.
         """
-                
         with self.con.cursor() as cursor:
             # Sorting out params - need cursor for this to create cursor.var
             params = []
-            if param_details:
-                for item in param_details:
-                    # Creating params that need specified data type (OUT or IN OUT)
-                    if isinstance(item, dict):
-                        ptype = item.get("type", None)
-                        if ptype:
-                            param = cursor.var(ptype)
-                            # Setting initial value for IN OUT params
-                            value = item.get("value", None)
-                            if value:
-                                param.setvalue(0, value)
-                            params.append(param)
-                else:
-                    # simple direct value
-                    params.append(item)
-                    
+            if param_details is not None:
+                params = self.make_plsql_parameters(param_details)
             cursor.callproc(procedure_name, params)
             return params
+        
+    def make_plsql_parameters(self, param_details):
+        """Make parameters for PL/SQL procedure. 
+        Helps with IN and IN OUT parameters which need to be cx_Oracle data types"""
+        params = []
+        with self.con.cursor() as cursor:
+            for item in param_details:
+                # Creating params that need specified data type (OUT or IN OUT)
+                if isinstance(item, dict):
+                    ptype = item.get("type", None)
+                    if ptype:
+                        param = cursor.var(ptype)
+                        # Setting initial value for IN OUT params
+                        value = item.get("value", None)
+                        if value:
+                            param.setvalue(0, value)
+                        params.append(param)
+                else:
+                    # simple direct value (OK for IN parameters)
+                    params.append(item)
+        return params
             
+               
     def call_concat_example(self):
         """
         Example of calling a PL/SQL procedure that has an IN parameter and an IN OUT parameter
@@ -103,7 +109,7 @@ if __name__ == "__main__":
     # Trying things out
     
     # Connect to database
-    cwa = DbCon("myusername", "mypassword", "cwa-db.aws.dev", "cwa", 1521)
+    cwa = DbCon("myusername", "mypassword", "cwa-db.aws.dev", "cwa", 1571)
     cwa.connect()
     
     # Run simple query
